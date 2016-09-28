@@ -1,0 +1,425 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Multiclass Classification and Neural Networks.\n",
+    "usefull links : [http://scikit-learn.org/stable/auto_examples/classification/plot_digits_classification.html] \n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "collapsed": false,
+    "scrolled": false
+   },
+   "outputs": [],
+   "source": [
+    "from sklearn import datasets\n",
+    "from matplotlib import pyplot as plt\n",
+    "%matplotlib inline\n",
+    "import numpy as np"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[X] downloading data...\n"
+     ]
+    }
+   ],
+   "source": [
+    "\n",
+    "print(\"[X] downloading data...\")\n",
+    "mnist = datasets.fetch_mldata(\"MNIST Original\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "print('mnist data shape : ', mnist.data.shape)\n",
+    "print('mnist target shape : ', mnist.target.shape)\n",
+    "print('target', mnist.target)\n",
+    "w,d = np.unique(mnist.target, return_inverse=True)\n",
+    "print('d', d)\n",
+    "np.bincount(d)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "n_digits = 10\n",
+    "n_display_digits = 5\n",
+    "for col in range(n_digits):\n",
+    "    for row in range(n_display_digits):\n",
+    "        plt.subplot(n_display_digits,n_digits,(col)+ n_digits*row+1)\n",
+    "        img = mnist.data[3000+col*6000+row].reshape(28,28)\n",
+    "        plt.axis('off')\n",
+    "        plt.imshow(img,cmap=plt.cm.gray_r, interpolation='nearest')\n",
+    "\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Let's try to do this multiclass classification manually\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "from sklearn.cross_validation import train_test_split\n",
+    "\n",
+    "#Temporarily reduce the training set to speed up execution while testing...\n",
+    "X_train, X_test, y_train, y_test = train_test_split(mnist.data, mnist.target, test_size = 0.99)\n",
+    "print('X_train size :', X_train.shape)\n",
+    "\n",
+    "print(y_train)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The code of these functions should be in a py file to avoid duplication..."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "from scipy.special import expit\n",
+    "\n",
+    "# Split Cost and Gradient : easier to use on personnal descent algo, and required for optimize.fmin function\n",
+    "# finally split Cost and Gradient : easier to use on personnal descent algo, and required for optimize.fmin function\n",
+    "def computeCostBFGS(theta, X, y):\n",
+    "    # y MUST be a column vector.\n",
+    "    y.shape = (y.size,1)\n",
+    "\n",
+    "    # Number of samples (training examples)\n",
+    "    m = y.shape[0]\n",
+    "    \n",
+    "    theta.shape = (theta.size, 1)\n",
+    "\n",
+    "    # logistic regression with sigmoid\n",
+    "    H = expit(np.dot(X,theta))\n",
+    "    \n",
+    "    #print('H:', H)\n",
+    "    \n",
+    "    #print('H:', H)\n",
+    "    J = np.sum(-y*(np.log(H)) - (1-y)*np.log(1-H)) / m\n",
+    "    \n",
+    "    theta.shape = (1,theta.size)\n",
+    "    theta = np.ndarray.flatten(theta[0])\n",
+    "    \n",
+    "    #print('J:', J)\n",
+    "\n",
+    "    return J\n",
+    "\n",
+    "\n",
+    "def computeGradientBFGS(theta, X, y):\n",
+    "    # y MUST be a column vector.\n",
+    "    y.shape = (y.size,1)\n",
+    "\n",
+    "    # Number of samples (training examples)\n",
+    "    m = y.shape[0]\n",
+    "\n",
+    "    theta.shape = (theta.size, 1)\n",
+    "\n",
+    "    # logistic regression with sigmoid\n",
+    "    H = expit(np.dot(X,theta))\n",
+    "    \n",
+    "    grad = np.dot( ((H-y) / m).transpose(), X) / m\n",
+    "    grad.shape = (grad.size, 1)\n",
+    "    theta.shape = (theta.size)\n",
+    "    theta = np.ndarray.flatten(theta)\n",
+    "    grad = np.ndarray.flatten(grad)\n",
+    "    \n",
+    "    return grad\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "# m : number of training samples\n",
+    "# n : number of features\n",
+    "m, n = X_train.shape\n",
+    "\n",
+    "# add this dummy parameter to X\n",
+    "ones = np.ones((m, 1))\n",
+    "X = np.hstack((ones, X_train))\n",
+    "print('X shape', X.shape)\n",
+    "\n",
+    "all_theta = np.array([])\n",
+    "\n",
+    "print('y : ', y_train.transpose())\n",
+    "\n",
+    "# One vs all algorithm\n",
+    "cost_for_all_values = np.array([])\n",
+    "\n",
+    "for value in range(10):\n",
+    "    print('Learning One vs ALL for :', value)\n",
+    "    y = np.copy(y_train)\n",
+    "    y[y_train!=value] = 0\n",
+    "    y[y_train==value] = 1\n",
+    "    # prior to computing the cost, we must initialize theta (weights, params...) to a zero matrix (could be also a random matrix)\n",
+    "    # we have n+1 parameters because of the \"dummy parameter\"\n",
+    "    theta = np.zeros(n+1)\n",
+    "\n",
+    "    #print('y : ', y)\n",
+    "    #print('Theta: ', theta)\n",
+    "    #cost, grad = computeCostOptim(theta, X, y)\n",
+    "    cost = computeCostBFGS(theta, X, y)\n",
+    "    grad = computeGradientBFGS(theta, X, y)\n",
+    "    print('==== Initial Cost :', cost)\n",
+    "    #print('==== Initial Gradient :', grad)\n",
+    "    print('= grad shape : ', grad.shape)\n",
+    "    alpha = 0.001\n",
+    "    cost_evolution = []\n",
+    "    # Number of samples (training examples)\n",
+    "    m = y.shape[0]\n",
+    "\n",
+    "    for i in range(3000):\n",
+    "        theta = theta - alpha*grad\n",
+    "        #print('theta :', theta)\n",
+    "        if i%10 == 0:\n",
+    "            #cost, grad = gradientDescent(theta, X, y, m, True)\n",
+    "            cost = computeCostBFGS(theta, X, y)\n",
+    "            grad = computeGradientBFGS(theta, X, y)\n",
+    "            cost_evolution.append(cost)\n",
+    "        else:\n",
+    "            #cost, grad = gradientDescent(theta, X, y, m, False)\n",
+    "            grad = computeGradientBFGS(theta, X, y)\n",
+    "\n",
+    "    cost_for_all_values = np.append(cost_for_all_values, cost)\n",
+    "    all_theta = np.hstack((all_theta, theta))\n",
+    "    #print('Theta: ', theta)\n",
+    "    print('Cost :', cost)\n",
+    "    #print('Cost evolution', cost_evolution)\n",
+    "    plt.plot(range(len(cost_evolution)), cost_evolution)\n",
+    "    plt.xlim((0,len(cost_evolution)))\n",
+    "    plt.ylim((0, 1))\n",
+    "    plt.show()\n",
+    "\n",
+    "print('All_Theta: ', all_theta.transpose())\n",
+    "print('All costs: ', cost_for_all_values)\n",
+    "print('Cost Mean: ', cost_for_all_values.mean())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## It doesn't seem to work without lambda and alpha"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "m, n = X_train.shape\n",
+    "\n",
+    "print('y train', y_train)\n",
+    "\n",
+    "all_theta = np.array([])\n",
+    "\n",
+    "# One vs all algorithm\n",
+    "for value in range(10):\n",
+    "    y = np.copy(y_train)\n",
+    "    y[y_train!=value] = 0\n",
+    "    y[y_train==value] = 1\n",
+    "\n",
+    "    # prior to computing the cost, we must initialize theta (weights, params...) to a zero matrix (could be also a random matrix)\n",
+    "    # we have n+1 parameters because of the \"dummy parameter\"\n",
+    "    theta = np.zeros(n+1)\n",
+    "\n",
+    "    # add this dummy parameter to X\n",
+    "    ones = np.ones((m, 1))\n",
+    "    X = np.hstack((ones, X_train))\n",
+    "\n",
+    "    from scipy import optimize\n",
+    "\n",
+    "    # prior to computing the cost, we must initialize theta (weights, params...) to a zero matrix (could be also a random matrix)\n",
+    "    # we have n+1 parameters because of the \"dummy parameter\"\n",
+    "    init_theta = np.zeros((n+1))\n",
+    "    theta = optimize.fmin_ncg(computeCostBFGS, x0=init_theta, args=(X,y), fprime=computeGradientBFGS)\n",
+    "    #print('SOLUTION : ', theta)\n",
+    "    all_theta = np.hstack((all_theta, theta))\n",
+    "    \n",
+    "print('SOLUTION : ', all_theta)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "X_train size : (7000, 784)\n",
+      "[ 0.  8.  6. ...,  5.  6.  1.]\n",
+      "Score on training set :  1.0\n",
+      "Score on test set :  0.980904761905\n",
+      "Score on training set :  1.0\n",
+      "Score on test set :  0.986158730159\n",
+      "Score on training set :  0.999714285714\n",
+      "Score on test set :  0.958666666667\n",
+      "Score on training set :  0.986714285714\n",
+      "Score on test set :  0.952238095238\n",
+      "Score on training set :  1.0\n",
+      "Score on test set :  0.965920634921\n",
+      "Score on training set :  0.990571428571\n",
+      "Score on test set :  0.956492063492\n",
+      "Score on training set :  1.0\n",
+      "Score on test set :  0.972333333333\n",
+      "Score on training set :  1.0\n",
+      "Score on test set :  0.971095238095\n",
+      "Score on training set :  0.964571428571\n",
+      "Score on test set :  0.930603174603\n",
+      "Score on training set :  0.974285714286\n",
+      "Score on test set :  0.944920634921\n",
+      "Test score for 0 : 0.980904761904762\n",
+      "Test score for 1 : 0.9861587301587301\n",
+      "Test score for 2 : 0.9586666666666667\n",
+      "Test score for 3 : 0.9522380952380952\n",
+      "Test score for 4 : 0.965920634920635\n",
+      "Test score for 5 : 0.9564920634920635\n",
+      "Test score for 6 : 0.9723333333333334\n",
+      "Test score for 7 : 0.9710952380952381\n",
+      "Test score for 8 : 0.9306031746031747\n",
+      "Test score for 9 : 0.9449206349206349\n",
+      "Mean performace on training set :  0.991585714286\n",
+      "Mean performance on test set :  0.961933333333\n"
+     ]
+    }
+   ],
+   "source": [
+    "from sklearn.cross_validation import train_test_split\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "\n",
+    "#Temporarily reduce the training set to speed up execution while testing...\n",
+    "X_train, X_test, y_train, y_test = train_test_split(mnist.data, mnist.target, test_size = 0.90)\n",
+    "print('X_train size :', X_train.shape)\n",
+    "\n",
+    "print(y_train)\n",
+    "\n",
+    "\n",
+    "\n",
+    "Lambda = 1\n",
+    "\n",
+    "lr = LogisticRegression(solver='lbfgs', C=1/Lambda)  # C = 1/lambda (default = 1, if lower, regularization is stronger)\n",
+    "\n",
+    "test_scores_for_all = np.array([])\n",
+    "train_scores_for_all = np.array([])\n",
+    "\n",
+    "# One vs all algorithm\n",
+    "for value in range(10):\n",
+    "    y = np.copy(y_train)\n",
+    "    y[y_train==value] = 1\n",
+    "    y[y_train!=value] = 0\n",
+    "\n",
+    "    lr.fit(X_train,y)\n",
+    "    lr.get_params()\n",
+    "    \n",
+    "    # We need to STORE theta for each fitting in order to use them for further prediction\n",
+    "    # Could create a function : predictOnevsAll\n",
+    "\n",
+    "    #print('Coeff = {}, intercept = {}'.format(lr.coef_, lr.intercept_ ))\n",
+    "\n",
+    "    train_score = lr.score(X_train, y)\n",
+    "    train_scores_for_all = np.append(train_scores_for_all, train_score)\n",
+    "    print('Score on training set : ', lr.score(X_train,y))\n",
+    "    \n",
+    "    y_test_one = np.copy(y_test)\n",
+    "    y_test_one[y_test==value] = 1\n",
+    "    y_test_one[y_test!=value] = 0\n",
+    " \n",
+    "    test_score = lr.score(X_test,y_test_one)\n",
+    "    test_scores_for_all = np.append(test_scores_for_all, test_score)\n",
+    "    \n",
+    "    print('Score on test set : ', test_score)\n",
+    "\n",
+    "for value in range(10):\n",
+    "    print('Test score for {} : {}'.format(value, test_scores_for_all[value]))\n",
+    "print('Mean performace on training set : ', np.mean(train_scores_for_all))\n",
+    "print('Mean performance on test set : ', np.mean(test_scores_for_all))\n",
+    "    \n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.5.1"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 0
+}
